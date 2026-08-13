@@ -114,12 +114,12 @@ async function syncIptvOrg(){
 
 app.get("/api/channels", async(req,res)=>{
   const list=channels
-    ? await channels.find({enabled:{$ne:false}}).sort({group:1,name:1}).toArray()
-    : mem.filter(x=>x.enabled!==false);
+    ? await channels.find({enabled:{$ne:false}}).sort({order:1,group:1,name:1}).toArray()
+    : mem.filter(x=>x.enabled!==false).sort((a,b)=>(a.order??999999)-(b.order??999999));
   res.json({ok:true,channels:list});
 });
 app.get("/api/admin/channels",auth,async(req,res)=>{
-  const list=channels?await channels.find({}).sort({source:1,group:1,name:1}).toArray():mem;
+  const list=channels?await channels.find({}).sort({order:1,group:1,name:1}).toArray():mem.slice().sort((a,b)=>(a.order??999999)-(b.order??999999));
   res.json({ok:true,channels:list,syncState,iptvOrgUrl:IPTV_ORG_URL});
 });
 app.post("/api/admin/channels",auth,async(req,res)=>{
@@ -137,6 +137,19 @@ app.put("/api/admin/channels/:id",auth,async(req,res)=>{
   else{const x=mem.find(x=>String(x._id)===req.params.id);if(x)Object.assign(x,patch);}
   res.json({ok:true});
 });
+
+app.post("/api/admin/reorder",auth,async(req,res)=>{
+  const ids=Array.isArray(req.body.ids)?req.body.ids:[];
+  if(!ids.length) return res.status(400).json({ok:false,error:"Thiếu danh sách thứ tự"});
+  if(channels){
+    const ops=ids.map((id,i)=>({updateOne:{filter:{_id:new ObjectId(id)},update:{$set:{order:i,updatedAt:new Date()}}}}));
+    await channels.bulkWrite(ops,{ordered:false});
+  }else{
+    ids.forEach((id,i)=>{const x=mem.find(a=>String(a._id)===String(id));if(x)x.order=i});
+  }
+  res.json({ok:true});
+});
+
 app.delete("/api/admin/channels/:id",auth,async(req,res)=>{
   if(channels) await channels.deleteOne({_id:new ObjectId(req.params.id)});
   else mem=mem.filter(x=>String(x._id)!==req.params.id);

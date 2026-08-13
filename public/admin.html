@@ -5,13 +5,26 @@
 <div class=card><h3>IPTV-org Việt Nam</h3><p>Nguồn mặc định: <code>countries/vn.m3u</code></p><button onclick=syncOrg()>🔄 Cập nhật kênh IPTV-org</button> <span id=syncmsg></span><div id=status></div></div>
 <div class=card><h3>Thêm kênh riêng</h3><div class=row><input id=n placeholder="Tên kênh"><input id=g placeholder="Nhóm"><input id=l class=wide placeholder="Logo URL"><input id=u class=wide placeholder="Stream URL"><button onclick=add()>Thêm</button></div></div>
 <div class=card><h3>Import playlist M3U riêng</h3><input id=f type=file accept=".m3u,.m3u8,text/plain"><button onclick=imp()>Import</button><span id=msg></span></div>
-<div class=card><h3>Danh sách kênh</h3><div style="overflow:auto"><table><thead><tr><th>Kênh</th><th>Nhóm</th><th>Nguồn</th><th>Trạng thái</th><th></th></tr></thead><tbody id=tb></tbody></table></div></div>
+<div class=card><h3>Danh sách kênh</h3><div style="overflow:auto"><table><thead><tr><th>↕</th><th>Kênh</th><th>Nhóm</th><th>Nguồn</th><th>Trạng thái</th><th></th></tr></thead><tbody id=tb></tbody></table></div></div>
 <script>
 const K=()=>key.value;async function api(url,opt={}){opt.headers={...(opt.headers||{}),"x-admin-key":K(),"content-type":"application/json"};let r=await fetch(url,opt),j=await r.json();if(!r.ok)throw Error(j.error||j.lastError||"Lỗi");return j}
-async function load(){try{let j=await api("/api/admin/channels");tb.innerHTML=j.channels.map(x=>`<tr><td>${x.name}</td><td>${x.group||""}</td><td><span class=pill>${x.source||"manual"}</span></td><td>${x.enabled!==false?"🟢":"⚫"}</td><td><button onclick="toggle('${x._id}',${x.enabled!==false})">Bật/tắt</button><button onclick="del('${x._id}')">Xóa</button></td></tr>`).join("");status.textContent=j.syncState.lastSyncAt?`Lần đồng bộ cuối: ${j.syncState.lastSyncAt} · ${j.syncState.lastImported} kênh`:"Chưa đồng bộ"}catch(e){alert(e.message)}}
+async function load(){try{let j=await api("/api/admin/channels");tb.innerHTML=j.channels.map(x=>`<tr draggable="true" data-id="${x._id}"><td style="cursor:grab;font-size:20px">☰</td><td>${x.name}</td><td>${x.group||""}</td><td><span class=pill>${x.source||"manual"}</span></td><td>${x.enabled!==false?"🟢":"⚫"}</td><td><button onclick="toggle('${x._id}',${x.enabled!==false})">Bật/tắt</button><button onclick="del('${x._id}')">Xóa</button></td></tr>`).join("");enableDrag();status.textContent=j.syncState.lastSyncAt?`Lần đồng bộ cuối: ${j.syncState.lastSyncAt} · ${j.syncState.lastImported} kênh`:"Chưa đồng bộ"}catch(e){alert(e.message)}}
 async function syncOrg(){syncmsg.textContent="Đang tải...";try{let j=await api("/api/admin/sync-iptv-org",{method:"POST"});syncmsg.className="ok";syncmsg.textContent=`Đã đồng bộ ${j.lastImported} kênh`;load()}catch(e){syncmsg.className="err";syncmsg.textContent=e.message}}
 async function add(){await api("/api/admin/channels",{method:"POST",body:JSON.stringify({name:n.value,group:g.value||"Khác",logo:l.value,url:u.value})});load()}
 async function toggle(id,on){await api("/api/admin/channels/"+id,{method:"PUT",body:JSON.stringify({enabled:!on})});load()}
 async function del(id){if(confirm("Xóa kênh?")){await api("/api/admin/channels/"+id,{method:"DELETE"});load()}}
 async function imp(){let fd=new FormData();fd.append("file",f.files[0]);let r=await fetch("/api/admin/import-m3u",{method:"POST",headers:{"x-admin-key":K()},body:fd}),j=await r.json();msg.textContent=j.ok?`Đã import ${j.imported} kênh`:(j.error||"Lỗi");if(j.ok)load()}
+
+let dragRow=null;
+function enableDrag(){
+  document.querySelectorAll("#tb tr").forEach(row=>{
+    row.ondragstart=()=>{dragRow=row;row.style.opacity=".45"};
+    row.ondragend=()=>{row.style.opacity="1";dragRow=null;saveOrder()};
+    row.ondragover=e=>{e.preventDefault();if(!dragRow||dragRow===row)return;const r=row.getBoundingClientRect();const after=e.clientY>r.top+r.height/2;row.parentNode.insertBefore(dragRow,after?row.nextSibling:row)};
+  });
+}
+async function saveOrder(){
+  const ids=[...document.querySelectorAll("#tb tr")].map(r=>r.dataset.id);
+  try{await api("/api/admin/reorder",{method:"POST",body:JSON.stringify({ids})})}catch(e){alert("Không lưu được thứ tự: "+e.message)}
+}
 </script></body></html>
