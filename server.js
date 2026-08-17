@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 const ADMIN_KEY = process.env.ADMIN_KEY || "123456";
 const MONGODB_URI = process.env.MONGODB_URI || "";
-const IPTV_ORG_URL = process.env.IPTV_ORG_URL || "https://iptv-org.github.io/iptv/countries/vn.m3u";
+const IPTV_ORG_URL = process.env.IPTV_ORG_URL || "";
 const AUTO_SYNC_HOURS = Math.max(1, Number(process.env.AUTO_SYNC_HOURS || 24));
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
